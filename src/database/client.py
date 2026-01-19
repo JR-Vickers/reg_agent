@@ -57,7 +57,7 @@ class SupabaseClient:
             logger.error(f"Error fetching regulation {regulation_id}: {e}")
             raise
 
-    async def get_regulations(
+    def get_regulations(
         self,
         source: Optional[str] = None,
         limit: int = 50,

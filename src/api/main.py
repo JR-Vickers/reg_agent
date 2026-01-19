@@ -74,13 +74,14 @@ async def root():
 async def health_check():
     """Detailed health check with database connectivity."""
     try:
-        # Test Supabase connection
+        # Test basic Supabase connection
         client = get_supabase_client()
-        await client.get_regulations(limit=1)
+        # Simple query that doesn't depend on our tables
+        result = client.client.table("_realtime_heartbeat").select("*").limit(1).execute()
         db_status = "connected"
     except Exception as e:
         logger.warning(f"Database health check failed: {e}")
-        db_status = "disconnected"
+        db_status = f"disconnected: {str(e)[:100]}"
 
     return {
         "status": "ok",
