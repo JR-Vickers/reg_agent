@@ -1,0 +1,22 @@
+# Docker Compose file for local development
+version: '3.8'
+
+services:
+  # Your main Python application
+  app:
+    build: .  # Build from Dockerfile in current directory
+    ports:
+      - "8000:8000"  # Map host port 8000 to container port 8000
+    volumes:
+      - ./src:/app/src  # Mount source code for live editing
+      - ./pyproject.toml:/app/pyproject.toml
+    environment:
+      - PYTHONPATH=/app/src
+      - ENVIRONMENT=development
+    # Restart policy
+    restart: unless-stopped
+
+  # Future services will go here:
+  # - PostgreSQL database
+  # - Redis cache
+  # - Vector database

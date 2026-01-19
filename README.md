@@ -1,3 +1,7 @@
+# Getting started
+docker build -t reg-agent .
+docker run -p 8000:8000 reg-agent
+
 # Project Structure
 src/
 ├── agents/           # Core agentic components
