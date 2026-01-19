@@ -5,7 +5,6 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Create enum types for consistency
-CREATE TYPE relevance_score_enum AS ENUM ('0', '1', '2', '3', '4', '5');
 CREATE TYPE gap_severity_enum AS ENUM ('low', 'medium', 'high', 'critical');
 
 -- Regulation Documents table
@@ -32,7 +31,7 @@ CREATE TABLE regulations (
 CREATE TABLE classifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   regulation_id UUID NOT NULL REFERENCES regulations(id) ON DELETE CASCADE,
-  relevance_score relevance_score_enum NOT NULL, -- 0-5 BSA/AML relevance
+  relevance_score INTEGER NOT NULL CHECK (relevance_score >= 0 AND relevance_score <= 5), -- 0-5 BSA/AML relevance
   confidence DECIMAL(3,2) NOT NULL CHECK (confidence >= 0.0 AND confidence <= 1.0),
   bsa_pillars JSONB, -- Array of relevant BSA Five Pillars
   categories JSONB, -- Detailed classification categories
@@ -111,7 +110,7 @@ FROM regulations r
 JOIN classifications c ON r.id = c.regulation_id
 LEFT JOIN gap_analyses g ON r.id = g.regulation_id
 WHERE
-  (c.relevance_score::integer >= 3 AND c.confidence >= 0.8)
+  (c.relevance_score >= 3 AND c.confidence >= 0.8)
   OR g.gap_severity IN ('high', 'critical')
 ORDER BY
   CASE g.gap_severity
@@ -120,7 +119,7 @@ ORDER BY
     WHEN 'medium' THEN 3
     ELSE 4
   END,
-  c.relevance_score::integer DESC,
+  c.relevance_score DESC,
   r.published_date DESC;
 
 -- Insert some example data for testing (remove in production)
