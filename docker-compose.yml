@@ -10,6 +10,8 @@ services:
     volumes:
       - ./src:/app/src  # Mount source code for live editing
       - ./pyproject.toml:/app/pyproject.toml
+    env_file:
+      - .env
     environment:
       - PYTHONPATH=/app/src
       - ENVIRONMENT=development

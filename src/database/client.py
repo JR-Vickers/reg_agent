@@ -32,7 +32,7 @@ class SupabaseClient:
         """Create a new regulation document."""
         try:
             response = self.client.table("regulations").insert(
-                regulation.model_dump(exclude_none=True)
+                regulation.model_dump(mode="json", exclude_none=True)
             ).execute()
 
             if not response.data:
