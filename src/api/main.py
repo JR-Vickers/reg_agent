@@ -3,10 +3,13 @@ FastAPI application for regulatory intelligence system.
 Provides REST API for document ingestion, classification, and gap analysis.
 """
 import logging
+import threading
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import List
 
+import schedule
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -21,6 +24,7 @@ from src.models.document import (
     GapAnalysisResponse, GapAnalysisCreate,
     PriorityRegulation
 )
+from src.agents.monitor.fincen import ingest_new_documents
 
 # Configure logging
 logging.config.dictConfig(get_log_config())
@@ -29,10 +33,33 @@ logger = logging.getLogger(__name__)
 # Templates
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
+# Scheduler state
+scheduler_running = False
+
+
+def run_scheduler():
+    """Run the schedule loop in a background thread."""
+    global scheduler_running
+    while scheduler_running:
+        schedule.run_pending()
+        time.sleep(60)
+
+
+def run_fincen_scraper():
+    """Wrapper to run the FinCEN scraper with error handling."""
+    try:
+        logger.info("Running scheduled FinCEN scrape")
+        count = ingest_new_documents()
+        logger.info(f"Scheduled scrape complete: {count} new documents")
+    except Exception as e:
+        logger.error(f"Scheduled FinCEN scrape failed: {e}")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
+    global scheduler_running
+
     # Startup
     logger.info("Starting Regulatory Intelligence Agent")
     try:
@@ -41,10 +68,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database initialization failed: {e}")
 
+    # Start scheduler
+    schedule.every(30).minutes.do(run_fincen_scraper)
+    scheduler_running = True
+    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+    scheduler_thread.start()
+    logger.info("FinCEN scraper scheduled to run every 30 minutes")
+
     yield
 
     # Shutdown
     logger.info("Shutting down Regulatory Intelligence Agent")
+    scheduler_running = False
+    schedule.clear()
     await close_database()
 
 
@@ -243,3 +279,14 @@ async def dashboard(
     except Exception as e:
         logger.error(f"Error rendering dashboard: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.post("/api/scrape/fincen")
+def trigger_fincen_scrape():
+    """Manually trigger a FinCEN scrape."""
+    try:
+        count = ingest_new_documents()
+        return {"status": "ok", "new_documents": count}
+    except Exception as e:
+        logger.error(f"Manual FinCEN scrape failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

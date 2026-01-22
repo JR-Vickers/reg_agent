@@ -134,14 +134,14 @@ def scrape_fincen() -> List[ScrapedDocument]:
     return all_documents
 
 
-async def ingest_new_documents() -> int:
+def ingest_new_documents() -> int:
     """Scrape FinCEN and store new documents in database."""
     db = get_supabase_client()
     documents = scrape_fincen()
 
     new_count = 0
     for doc in documents:
-        exists = await db.regulation_exists(
+        exists = db.regulation_exists(
             source=DocumentSource.FINCEN.value,
             document_id=doc.document_id
         )
@@ -161,7 +161,7 @@ async def ingest_new_documents() -> int:
         )
 
         try:
-            await db.create_regulation(regulation)
+            db.create_regulation(regulation)
             logger.info(f"Stored new document: {doc.title}")
             new_count += 1
         except Exception as e:
