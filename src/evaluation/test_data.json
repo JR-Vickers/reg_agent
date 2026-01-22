@@ -1,0 +1,315 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2026-01-22",
+    "description": "Manually labeled FinCEN documents for classifier evaluation",
+    "labeler": "domain_expert",
+    "label_guide": {
+      "relevance_score": "0=not relevant, 1=minimal, 2=low, 3=moderate, 4=high, 5=critical for crypto exchange BSA/AML",
+      "bsa_pillars": ["internal_controls", "bsa_officer", "training", "independent_testing", "customer_due_diligence"],
+      "categories": ["aml", "sanctions", "fraud", "terrorism_financing", "cdd_kyc", "sar_filing", "crypto_specific", "money_laundering", "human_trafficking", "tax_evasion"]
+    }
+  },
+  "test_cases": [
+    {
+      "document_id": "FIN-2025-NTC001",
+      "title": "FinCEN Notice on the Use of Convertible Virtual Currency Kiosks for Scam Payments and Other Illicit Activity",
+      "expected": {
+        "relevance_score": 5,
+        "confidence": 0.95,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["crypto_specific", "fraud", "aml", "sar_filing"],
+        "requires_human_review": false
+      },
+      "rationale": "Directly addresses crypto kiosks and illicit activity - critical for any crypto exchange's compliance program"
+    },
+    {
+      "document_id": "FIN-2023-ALERT005",
+      "title": "FinCEN Alert on Prevalent Virtual Currency Investment Scam Commonly Known as 'Pig Butchering'",
+      "expected": {
+        "relevance_score": 5,
+        "confidence": 0.95,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["crypto_specific", "fraud", "aml", "sar_filing"],
+        "requires_human_review": false
+      },
+      "rationale": "Pig butchering scams are a major crypto fraud vector - critical for exchange compliance teams"
+    },
+    {
+      "document_id": "FIN-2024-ALERT004",
+      "title": "FinCEN Alert on Fraud Schemes Involving Deepfake Media Targeting Financial Institutions",
+      "expected": {
+        "relevance_score": 4,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["fraud", "cdd_kyc"],
+        "requires_human_review": false
+      },
+      "rationale": "Deepfakes affect KYC/identity verification - highly relevant but not crypto-specific"
+    },
+    {
+      "document_id": "FIN-2025-CTA1",
+      "title": "FinCEN Extends Beneficial Ownership Information Reporting Deadline",
+      "expected": {
+        "relevance_score": 3,
+        "confidence": 0.80,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence"],
+        "categories": ["cdd_kyc", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "BOI reporting affects CDD programs but is entity-level compliance, not transaction monitoring"
+    },
+    {
+      "document_id": "FIN-2023-ALERT006",
+      "title": "FinCEN Alert to Financial Institutions to Counter Financing to Hamas and its Terrorist Activities",
+      "expected": {
+        "relevance_score": 4,
+        "confidence": 0.90,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["terrorism_financing", "sanctions", "aml", "sar_filing"],
+        "requires_human_review": false
+      },
+      "rationale": "Terrorist financing is core BSA concern - provides red flags for transaction monitoring"
+    },
+    {
+      "document_id": "FIN-2024-ALERT003",
+      "title": "FinCEN Alert to Financial Institutions to Counter Financing of Hizballah",
+      "expected": {
+        "relevance_score": 4,
+        "confidence": 0.90,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["terrorism_financing", "sanctions", "aml", "sar_filing"],
+        "requires_human_review": false
+      },
+      "rationale": "Terrorist financing alert with transaction red flags - high relevance for all FIs"
+    },
+    {
+      "document_id": "FIN-2025-A001",
+      "title": "FinCEN Advisory on the Financing of ISIS and its Global Affiliates",
+      "expected": {
+        "relevance_score": 4,
+        "confidence": 0.90,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["terrorism_financing", "sanctions", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Detailed terrorist financing advisory - relevant for sanctions and AML programs"
+    },
+    {
+      "document_id": "FIN-2025-A002",
+      "title": "FinCEN Advisory on Iranian Regime's Illicit Oil Smuggling and Shadow Banking",
+      "expected": {
+        "relevance_score": 3,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence"],
+        "categories": ["sanctions", "money_laundering", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Sanctions evasion via shadow banking - moderate relevance, more traditional banking focused"
+    },
+    {
+      "document_id": "FIN-2024-A002",
+      "title": "Supplemental Advisory on Precursor Chemicals for Illicit Fentanyl Synthesis",
+      "expected": {
+        "relevance_score": 2,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "training"],
+        "categories": ["aml", "money_laundering"],
+        "requires_human_review": false
+      },
+      "rationale": "Drug trafficking financing is relevant but fentanyl precursor focus is specialized - low direct crypto relevance"
+    },
+    {
+      "document_id": "FIN-2025-ALERT001",
+      "title": "FinCEN Alert on Bulk Cash Smuggling by Mexico-Based TCOs",
+      "expected": {
+        "relevance_score": 2,
+        "confidence": 0.80,
+        "bsa_pillars": ["internal_controls", "training"],
+        "categories": ["money_laundering", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Cash smuggling is relevant context but not directly applicable to crypto exchanges"
+    },
+    {
+      "document_id": "FIN-2025-A003",
+      "title": "FinCEN Advisory on Chinese Money Laundering Networks Used by Mexican TCOs",
+      "expected": {
+        "relevance_score": 3,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["money_laundering", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Chinese money laundering networks sometimes use crypto - moderate relevance with useful red flags"
+    },
+    {
+      "document_id": "FIN-2024-ALERT005",
+      "title": "FinCEN Alert on Fraud Schemes Abusing FinCEN's Name for Financial Gain",
+      "expected": {
+        "relevance_score": 3,
+        "confidence": 0.80,
+        "bsa_pillars": ["internal_controls", "training"],
+        "categories": ["fraud"],
+        "requires_human_review": false
+      },
+      "rationale": "Impersonation fraud affects customer protection - relevant for customer communications"
+    },
+    {
+      "document_id": "FIN-2024-NTC1",
+      "title": "FinCEN Notice on Counterfeit U.S. Passport Cards for Identity Theft",
+      "expected": {
+        "relevance_score": 4,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["fraud", "cdd_kyc"],
+        "requires_human_review": false
+      },
+      "rationale": "Identity document fraud directly impacts KYC processes at crypto exchanges"
+    },
+    {
+      "document_id": "FIN-2023-NTC2",
+      "title": "FinCEN and BIS Notice on Global Evasion of U.S. Export Controls",
+      "expected": {
+        "relevance_score": 3,
+        "confidence": 0.80,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence"],
+        "categories": ["sanctions", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Export control evasion intersects with sanctions - relevant for transaction monitoring"
+    },
+    {
+      "document_id": "FIN-2023-ALERT007",
+      "title": "FinCEN Alert on COVID-19 Employee Retention Credit Fraud",
+      "expected": {
+        "relevance_score": 2,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls"],
+        "categories": ["fraud", "tax_evasion"],
+        "requires_human_review": false
+      },
+      "rationale": "Tax credit fraud is tangentially relevant - proceeds may flow through crypto but not core focus"
+    },
+    {
+      "document_id": "FIN-2023-NTC1",
+      "title": "FinCEN Notice on Payroll Tax Evasion and Workers' Compensation Fraud in Construction",
+      "expected": {
+        "relevance_score": 1,
+        "confidence": 0.90,
+        "bsa_pillars": ["internal_controls"],
+        "categories": ["tax_evasion", "fraud"],
+        "requires_human_review": false
+      },
+      "rationale": "Industry-specific tax fraud with minimal relevance to crypto exchange operations"
+    },
+    {
+      "document_id": "FIN-2026-ALERT001",
+      "title": "FinCEN Alert on Fraud Rings Exploiting Federal Child Nutrition Programs in Minnesota",
+      "expected": {
+        "relevance_score": 1,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls"],
+        "categories": ["fraud"],
+        "requires_human_review": false
+      },
+      "rationale": "Highly specific fraud scheme with minimal direct relevance to crypto - proceeds laundering possible"
+    },
+    {
+      "document_id": "FIN-2025-NTC2",
+      "title": "FinCEN Notice on Financially Motivated Sextortion",
+      "expected": {
+        "relevance_score": 4,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence", "training"],
+        "categories": ["fraud", "aml", "sar_filing"],
+        "requires_human_review": false
+      },
+      "rationale": "Sextortion often involves crypto payments - highly relevant with specific red flags"
+    },
+    {
+      "document_id": "FIN-2025-ALERT003",
+      "title": "FinCEN Alert on Cross-Border Funds Transfers Involving Illegal Aliens",
+      "expected": {
+        "relevance_score": 2,
+        "confidence": 0.75,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence"],
+        "categories": ["aml", "human_trafficking"],
+        "requires_human_review": true
+      },
+      "rationale": "Immigration-related transfers may involve crypto but context is more traditional remittance"
+    },
+    {
+      "document_id": "FIN-2024-NTC2",
+      "title": "Joint Notice on Timeshare Fraud Associated with Mexican TCOs",
+      "expected": {
+        "relevance_score": 2,
+        "confidence": 0.80,
+        "bsa_pillars": ["internal_controls", "training"],
+        "categories": ["fraud", "money_laundering"],
+        "requires_human_review": false
+      },
+      "rationale": "Elder fraud scheme - proceeds may flow through crypto but scheme itself is traditional"
+    },
+    {
+      "document_id": "FIN-2024-ALERT002",
+      "title": "(Rescinded) FinCEN Alert on Israeli Extremist Violence in the West Bank",
+      "expected": {
+        "relevance_score": 0,
+        "confidence": 0.95,
+        "bsa_pillars": [],
+        "categories": [],
+        "requires_human_review": false
+      },
+      "rationale": "Rescinded alert - should not inform current compliance decisions"
+    },
+    {
+      "document_id": "FIN-2024-ALERT001",
+      "title": "(Rescinded) FinCEN Alert on Israeli Extremist Settler Violence",
+      "expected": {
+        "relevance_score": 0,
+        "confidence": 0.95,
+        "bsa_pillars": [],
+        "categories": [],
+        "requires_human_review": false
+      },
+      "rationale": "Rescinded alert - no longer valid guidance"
+    },
+    {
+      "document_id": "FIN-2023-ALERT004",
+      "title": "Supplemental Alert: FinCEN and BIS Urge Vigilance for Russian Export Control Evasion",
+      "expected": {
+        "relevance_score": 3,
+        "confidence": 0.85,
+        "bsa_pillars": ["internal_controls", "customer_due_diligence"],
+        "categories": ["sanctions", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Russia sanctions evasion is relevant - crypto often used for sanctions circumvention"
+    },
+    {
+      "document_id": "FIN-2025-ALERT002",
+      "title": "FinCEN Alert on Oil Smuggling Schemes Associated with Mexican Cartels",
+      "expected": {
+        "relevance_score": 2,
+        "confidence": 0.80,
+        "bsa_pillars": ["internal_controls"],
+        "categories": ["money_laundering", "aml"],
+        "requires_human_review": false
+      },
+      "rationale": "Oil smuggling financing context - TCO proceeds may touch crypto but not primary focus"
+    },
+    {
+      "document_id": "FIN-2023-ALERT003",
+      "title": "FinCEN Alert on Mail Theft-Related Check Fraud",
+      "expected": {
+        "relevance_score": 1,
+        "confidence": 0.90,
+        "bsa_pillars": ["internal_controls"],
+        "categories": ["fraud"],
+        "requires_human_review": false
+      },
+      "rationale": "Check fraud is traditional banking - minimal relevance to crypto exchange operations"
+    }
+  ]
+}
