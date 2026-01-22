@@ -4,10 +4,13 @@ Provides REST API for document ingestion, classification, and gap analysis.
 """
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import List
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 
 from src.config.settings import settings, get_log_config
 from src.database.connection import init_database, close_database
@@ -22,6 +25,9 @@ from src.models.document import (
 # Configure logging
 logging.config.dictConfig(get_log_config())
 logger = logging.getLogger(__name__)
+
+# Templates
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
 @asynccontextmanager
@@ -102,14 +108,14 @@ async def create_regulation(
     """Create a new regulation document."""
     try:
         # Check for duplicates
-        exists = await client.regulation_exists(regulation.source, regulation.document_id)
+        exists = client.regulation_exists(regulation.source, regulation.document_id)
         if exists:
             raise HTTPException(
                 status_code=400,
                 detail="Regulation with this source and document_id already exists"
             )
 
-        data = await client.create_regulation(regulation)
+        data = client.create_regulation(regulation)
         return RegulationResponse(**data)
 
     except HTTPException:
@@ -128,7 +134,7 @@ async def get_regulations(
 ):
     """Get regulations with optional filtering."""
     try:
-        data = await client.get_regulations(source=source, limit=limit, offset=offset)
+        data = client.get_regulations(source=source, limit=limit, offset=offset)
         return [RegulationResponse(**item) for item in data]
 
     except Exception as e:
@@ -143,7 +149,7 @@ async def get_recent_regulations(
 ):
     """Get recent regulations with classification data."""
     try:
-        data = await client.get_recent_regulations(days=days)
+        data = client.get_recent_regulations(days=days)
         return data
 
     except Exception as e:
@@ -157,7 +163,7 @@ async def get_priority_regulations(
 ):
     """Get high-priority regulations requiring attention."""
     try:
-        data = await client.get_priority_regulations()
+        data = client.get_priority_regulations()
         return [PriorityRegulation(**item) for item in data]
 
     except Exception as e:
@@ -174,7 +180,7 @@ async def create_classification(
 ):
     """Create a new classification for a regulation."""
     try:
-        data = await client.create_classification(classification)
+        data = client.create_classification(classification)
         return ClassificationResponse(**data)
 
     except Exception as e:
@@ -191,9 +197,51 @@ async def create_gap_analysis(
 ):
     """Create a new gap analysis for a regulation."""
     try:
-        data = await client.create_gap_analysis(gap_analysis)
+        data = client.create_gap_analysis(gap_analysis)
         return GapAnalysisResponse(**data)
 
     except Exception as e:
         logger.error(f"Error creating gap analysis: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# Dashboard
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(
+    request: Request,
+    source: str = None,
+    limit: int = 50,
+    offset: int = 0,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Render the document dashboard."""
+    try:
+        regulations = client.get_regulations(source=source, limit=limit + 1, offset=offset)
+        has_more = len(regulations) > limit
+        regulations = regulations[:limit]
+
+        all_regs = client.get_regulations(limit=1000)
+        total_count = len(all_regs)
+        source_counts = {}
+        available_sources = set()
+        for reg in all_regs:
+            src = reg.get("source", "unknown")
+            available_sources.add(src)
+            source_counts[src] = source_counts.get(src, 0) + 1
+
+        return templates.TemplateResponse("dashboard.html", {
+            "request": request,
+            "regulations": regulations,
+            "total_count": total_count,
+            "source_counts": source_counts,
+            "available_sources": sorted(available_sources),
+            "current_source": source,
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more
+        })
+
+    except Exception as e:
+        logger.error(f"Error rendering dashboard: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

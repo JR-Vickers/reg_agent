@@ -28,7 +28,7 @@ class SupabaseClient:
 
     # Regulations
 
-    async def create_regulation(self, regulation: RegulationCreate) -> Dict[str, Any]:
+    def create_regulation(self, regulation: RegulationCreate) -> Dict[str, Any]:
         """Create a new regulation document."""
         try:
             response = self.client.table("regulations").insert(
@@ -44,7 +44,7 @@ class SupabaseClient:
             logger.error(f"Error creating regulation: {e}")
             raise
 
-    async def get_regulation(self, regulation_id: UUID) -> Optional[Dict[str, Any]]:
+    def get_regulation(self, regulation_id: UUID) -> Optional[Dict[str, Any]]:
         """Get regulation by ID."""
         try:
             response = self.client.table("regulations").select("*").eq(
@@ -80,7 +80,7 @@ class SupabaseClient:
             logger.error(f"Error fetching regulations: {e}")
             raise
 
-    async def regulation_exists(self, source: str, document_id: str) -> bool:
+    def regulation_exists(self, source: str, document_id: str) -> bool:
         """Check if regulation already exists."""
         try:
             response = self.client.table("regulations").select("id").eq(
@@ -95,7 +95,7 @@ class SupabaseClient:
 
     # Classifications
 
-    async def create_classification(
+    def create_classification(
         self,
         classification: ClassificationCreate
     ) -> Dict[str, Any]:
@@ -116,7 +116,7 @@ class SupabaseClient:
             logger.error(f"Error creating classification: {e}")
             raise
 
-    async def get_classification(
+    def get_classification(
         self,
         regulation_id: UUID
     ) -> Optional[Dict[str, Any]]:
@@ -134,7 +134,7 @@ class SupabaseClient:
 
     # Gap Analyses
 
-    async def create_gap_analysis(
+    def create_gap_analysis(
         self,
         gap_analysis: GapAnalysisCreate
     ) -> Dict[str, Any]:
@@ -153,7 +153,7 @@ class SupabaseClient:
             logger.error(f"Error creating gap analysis: {e}")
             raise
 
-    async def get_gap_analysis(
+    def get_gap_analysis(
         self,
         regulation_id: UUID
     ) -> Optional[Dict[str, Any]]:
@@ -171,7 +171,7 @@ class SupabaseClient:
 
     # Complex Queries
 
-    async def get_recent_regulations(self, days: int = 90) -> List[Dict[str, Any]]:
+    def get_recent_regulations(self, days: int = 90) -> List[Dict[str, Any]]:
         """Get recent regulations with classifications using view."""
         try:
             response = self.client.rpc(
@@ -184,9 +184,9 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Error fetching recent regulations: {e}")
             # Fallback to simple query
-            return await self.get_regulations(limit=50)
+            return self.get_regulations(limit=50)
 
-    async def get_priority_regulations(self) -> List[Dict[str, Any]]:
+    def get_priority_regulations(self) -> List[Dict[str, Any]]:
         """Get high-priority regulations requiring attention."""
         try:
             response = self.client.table("priority_regulations").select("*").execute()
@@ -198,7 +198,7 @@ class SupabaseClient:
 
     # Vector Search (for future use)
 
-    async def search_similar_regulations(
+    def search_similar_regulations(
         self,
         embedding: List[float],
         limit: int = 10,

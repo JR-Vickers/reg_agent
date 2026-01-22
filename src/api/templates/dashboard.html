@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Regulatory Intelligence Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: #1a1a2e; color: white; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+        header h1 { font-size: 1.5rem; margin-bottom: 5px; }
+        header p { color: #aaa; font-size: 0.9rem; }
+        .stats { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card { background: white; padding: 15px 20px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stat-card .value { font-size: 1.8rem; font-weight: bold; color: #1a1a2e; }
+        .stat-card .label { font-size: 0.85rem; color: #666; }
+        .filters { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .filters label { font-weight: 500; margin-right: 10px; }
+        .filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; }
+        table { width: 100%; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; color: #555; font-size: 0.85rem; text-transform: uppercase; }
+        tr:hover { background: #f8f9fa; }
+        td { font-size: 0.9rem; }
+        .source-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .source-fincen { background: #e3f2fd; color: #1565c0; }
+        .source-sec { background: #fff3e0; color: #e65100; }
+        .source-federal_register { background: #f3e5f5; color: #7b1fa2; }
+        .source-cftc { background: #e8f5e9; color: #2e7d32; }
+        .source-nydfs { background: #fce4ec; color: #c2185b; }
+        .source-ofac { background: #ffebee; color: #c62828; }
+        a { color: #1976d2; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .title-cell { max-width: 400px; }
+        .title-cell a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .date { color: #666; white-space: nowrap; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+        .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
+        .pagination a, .pagination span { padding: 8px 12px; border-radius: 4px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .pagination a:hover { background: #f0f0f0; text-decoration: none; }
+        .pagination .current { background: #1a1a2e; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Regulatory Intelligence Dashboard</h1>
+            <p>BSA/AML Compliance Monitoring System</p>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="value">{{ total_count }}</div>
+                <div class="label">Total Documents</div>
+            </div>
+            {% for source, count in source_counts.items() %}
+            <div class="stat-card">
+                <div class="value">{{ count }}</div>
+                <div class="label">{{ source|upper }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="filters">
+            <label for="source-filter">Filter by Source:</label>
+            <select id="source-filter" onchange="filterBySource(this.value)">
+                <option value="">All Sources</option>
+                {% for source in available_sources %}
+                <option value="{{ source }}" {% if current_source == source %}selected{% endif %}>{{ source|upper }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        {% if regulations %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Source</th>
+                    <th>Document ID</th>
+                    <th class="title-cell">Title</th>
+                    <th>Published</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in regulations %}
+                <tr>
+                    <td><span class="source-badge source-{{ reg.source }}">{{ reg.source }}</span></td>
+                    <td>{{ reg.document_id }}</td>
+                    <td class="title-cell"><a href="{{ reg.url }}" target="_blank" title="{{ reg.title }}">{{ reg.title }}</a></td>
+                    <td class="date">{{ reg.published_date[:10] if reg.published_date else 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="pagination">
+            {% if offset > 0 %}
+            <a href="?offset={{ offset - limit }}{% if current_source %}&source={{ current_source }}{% endif %}">Previous</a>
+            {% endif %}
+            <span class="current">{{ (offset // limit) + 1 }}</span>
+            {% if has_more %}
+            <a href="?offset={{ offset + limit }}{% if current_source %}&source={{ current_source }}{% endif %}">Next</a>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <p>No documents found.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        function filterBySource(source) {
+            const url = new URL(window.location);
+            url.searchParams.delete('offset');
+            if (source) {
+                url.searchParams.set('source', source);
+            } else {
+                url.searchParams.delete('source');
+            }
+            window.location = url;
+        }
+    </script>
+</body>
+</html>
