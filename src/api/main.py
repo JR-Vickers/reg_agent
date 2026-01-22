@@ -77,17 +77,15 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+def health_check():
     """Detailed health check with database connectivity."""
     try:
-        # Test basic Supabase connection
         client = get_supabase_client()
-        # Simple query that doesn't depend on our tables
-        result = client.client.table("_realtime_heartbeat").select("*").limit(1).execute()
-        db_status = "connected"
+        result = client.client.table("regulations").select("id").limit(1).execute()
+        db_status = f"connected ({len(result.data)} row returned)"
     except Exception as e:
         logger.warning(f"Database health check failed: {e}")
-        db_status = f"disconnected: {str(e)[:100]}"
+        db_status = f"error: {str(e)[:100]}"
 
     return {
         "status": "ok",

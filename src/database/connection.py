@@ -88,15 +88,16 @@ async def get_database() -> Database:
 
 
 async def init_database() -> None:
-    """Initialize database connection and schema."""
-    await db.connect()
-
-    # Only run schema in development
-    if not settings.env == "production":
-        try:
-            await db.execute_schema()
-        except Exception as e:
-            logger.warning(f"Schema execution failed (this is normal in production): {e}")
+    """Initialize database connection (optional - Supabase REST client is primary)."""
+    try:
+        await db.connect()
+        if settings.env != "production":
+            try:
+                await db.execute_schema()
+            except Exception as e:
+                logger.warning(f"Schema execution skipped: {e}")
+    except Exception as e:
+        logger.warning(f"Direct database connection unavailable (using Supabase REST): {e}")
 
 
 async def close_database() -> None:
