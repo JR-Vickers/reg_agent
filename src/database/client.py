@@ -101,8 +101,7 @@ class SupabaseClient:
     ) -> Dict[str, Any]:
         """Create a new classification."""
         try:
-            # Convert enum to int for database storage
-            data = classification.model_dump(exclude_none=True)
+            data = classification.model_dump(mode="json", exclude_none=True)
             data["relevance_score"] = int(data["relevance_score"])
 
             response = self.client.table("classifications").insert(data).execute()

@@ -22,7 +22,7 @@ from src.models.document import (
     RegulationResponse, RegulationCreate,
     ClassificationResponse, ClassificationCreate,
     GapAnalysisResponse, GapAnalysisCreate,
-    PriorityRegulation
+    PriorityRegulation, RelevanceScore, BSAPillar
 )
 from src.agents.monitor.fincen import ingest_new_documents
 
@@ -290,3 +290,46 @@ def trigger_fincen_scrape():
     except Exception as e:
         logger.error(f"Manual FinCEN scrape failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/classify/{regulation_id}", response_model=ClassificationResponse)
+def classify_regulation(
+    regulation_id: str,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Classify a regulation document using GPT-4o-mini."""
+    from uuid import UUID as _UUID
+    from src.agents.classify.client import classify_document
+
+    try:
+        reg_uuid = _UUID(regulation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid regulation ID format")
+
+    regulation = client.get_regulation(reg_uuid)
+    if not regulation:
+        raise HTTPException(status_code=404, detail="Regulation not found")
+
+    existing = client.get_classification(reg_uuid)
+    if existing:
+        return ClassificationResponse(**existing)
+
+    result = classify_document(
+        title=regulation["title"],
+        source=regulation.get("source", "unknown"),
+        published_date=str(regulation.get("published_date", "")),
+        content=regulation.get("content", regulation["title"]),
+    )
+
+    classification = ClassificationCreate(
+        regulation_id=reg_uuid,
+        relevance_score=RelevanceScore(result.relevance_score),
+        confidence=result.confidence,
+        bsa_pillars=[BSAPillar(p) for p in result.bsa_pillars],
+        categories={"labels": result.categories},
+        classification_reasoning=result.reasoning,
+        model_used="gpt-4o-mini",
+    )
+
+    data = client.create_classification(classification)
+    return ClassificationResponse(**data)
