@@ -24,7 +24,8 @@ from src.models.document import (
     GapAnalysisResponse, GapAnalysisCreate,
     PriorityRegulation,
 )
-from src.agents.monitor.fincen import ingest_new_documents
+from src.agents.monitor.fincen import ingest_new_documents as ingest_fincen
+from src.agents.monitor.federal_register import ingest_new_documents as ingest_federal_register
 
 # Configure logging
 logging.config.dictConfig(get_log_config())
@@ -49,10 +50,20 @@ def run_fincen_scraper():
     """Wrapper to run the FinCEN scraper with error handling."""
     try:
         logger.info("Running scheduled FinCEN scrape")
-        count = ingest_new_documents()
+        count = ingest_fincen()
         logger.info(f"Scheduled scrape complete: {count} new documents")
     except Exception as e:
         logger.error(f"Scheduled FinCEN scrape failed: {e}")
+
+
+def run_federal_register_scraper():
+    """Wrapper to run the Federal Register scraper with error handling."""
+    try:
+        logger.info("Running scheduled Federal Register scrape")
+        count = ingest_federal_register()
+        logger.info(f"Scheduled Federal Register scrape complete: {count} new documents")
+    except Exception as e:
+        logger.error(f"Scheduled Federal Register scrape failed: {e}")
 
 
 @asynccontextmanager
@@ -70,10 +81,11 @@ async def lifespan(app: FastAPI):
 
     # Start scheduler
     schedule.every(30).minutes.do(run_fincen_scraper)
+    schedule.every(24).hours.do(run_federal_register_scraper)
     scheduler_running = True
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
-    logger.info("FinCEN scraper scheduled to run every 30 minutes")
+    logger.info("FinCEN scraper scheduled every 30 minutes, Federal Register every 24 hours")
 
     yield
 
@@ -285,10 +297,25 @@ async def dashboard(
 def trigger_fincen_scrape():
     """Manually trigger a FinCEN scrape."""
     try:
-        count = ingest_new_documents()
+        count = ingest_fincen()
         return {"status": "ok", "new_documents": count}
     except Exception as e:
         logger.error(f"Manual FinCEN scrape failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scrape/federal-register")
+def trigger_federal_register_scrape(backfill_months: int = 0):
+    """Manually trigger a Federal Register scrape. Set backfill_months > 0 for historical data."""
+    try:
+        if backfill_months > 0:
+            from src.agents.monitor.federal_register import backfill
+            count = backfill(months=backfill_months)
+        else:
+            count = ingest_federal_register()
+        return {"status": "ok", "new_documents": count}
+    except Exception as e:
+        logger.error(f"Federal Register scrape failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
