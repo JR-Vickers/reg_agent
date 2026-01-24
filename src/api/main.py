@@ -22,7 +22,7 @@ from src.models.document import (
     RegulationResponse, RegulationCreate,
     ClassificationResponse, ClassificationCreate,
     GapAnalysisResponse, GapAnalysisCreate,
-    PriorityRegulation, RelevanceScore, BSAPillar
+    PriorityRegulation,
 )
 from src.agents.monitor.fincen import ingest_new_documents
 
@@ -341,7 +341,7 @@ def classify_regulation(
 ):
     """Classify a regulation document using GPT-4o-mini."""
     from uuid import UUID as _UUID
-    from src.agents.classify.client import classify_document
+    from src.agents.classify.pipeline import classify_and_store
 
     try:
         reg_uuid = _UUID(regulation_id)
@@ -356,22 +356,13 @@ def classify_regulation(
     if existing:
         return ClassificationResponse(**existing)
 
-    result = classify_document(
+    classify_and_store(
+        regulation_id=reg_uuid,
         title=regulation["title"],
         source=regulation.get("source", "unknown"),
         published_date=str(regulation.get("published_date", "")),
         content=regulation.get("content", regulation["title"]),
     )
 
-    classification = ClassificationCreate(
-        regulation_id=reg_uuid,
-        relevance_score=RelevanceScore(result.relevance_score),
-        confidence=result.confidence,
-        bsa_pillars=[BSAPillar(p) for p in result.bsa_pillars],
-        categories={"labels": result.categories},
-        classification_reasoning=result.reasoning,
-        model_used="gpt-4o-mini",
-    )
-
-    data = client.create_classification(classification)
+    data = client.get_classification(reg_uuid)
     return ClassificationResponse(**data)

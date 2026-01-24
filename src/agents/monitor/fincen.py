@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from typing import List, Optional
 from dataclasses import dataclass
+from uuid import UUID
 
 import requests
 from bs4 import BeautifulSoup
@@ -161,9 +162,22 @@ def ingest_new_documents() -> int:
         )
 
         try:
-            db.create_regulation(regulation)
+            result = db.create_regulation(regulation)
             logger.info(f"Stored new document: {doc.title}")
             new_count += 1
+
+            try:
+                from src.agents.classify.pipeline import classify_and_store
+                classify_and_store(
+                    regulation_id=UUID(result["id"]),
+                    title=doc.title,
+                    source=DocumentSource.FINCEN.value,
+                    published_date=str(doc.published_date or ""),
+                    content=doc.description or doc.title,
+                )
+            except Exception as e:
+                logger.error(f"Auto-classify failed for {doc.title}: {e}")
+
         except Exception as e:
             logger.error(f"Failed to store document {doc.title}: {e}")
 

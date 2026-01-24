@@ -1,4 +1,6 @@
 # Docs
+/docs
+.claude
 ARCHITECTURE.md
 CLAUDE.md
 decisions.md
