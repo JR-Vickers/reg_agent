@@ -292,6 +292,48 @@ def trigger_fincen_scrape():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/evaluate")
+def run_evaluation_endpoint():
+    """Run classifier against labeled test cases and return metrics."""
+    from src.evaluation.run_eval import run_evaluation
+    from src.evaluation.metrics import generate_report
+
+    try:
+        report, skipped = run_evaluation()
+        return {
+            "status": "ok",
+            "total_cases": report.total_cases,
+            "skipped": len(skipped),
+            "relevance": {
+                "mae": round(report.relevance.mae, 3),
+                "rmse": round(report.relevance.rmse, 3),
+                "tier_accuracy": round(report.relevance.tier_accuracy, 3),
+                "exact_accuracy": round(report.relevance.exact_accuracy, 3),
+            },
+            "pillars": {
+                "precision": round(report.pillars.precision, 3),
+                "recall": round(report.pillars.recall, 3),
+                "f1": round(report.pillars.f1, 3),
+            },
+            "categories": {
+                "precision": round(report.categories.precision, 3),
+                "recall": round(report.categories.recall, 3),
+                "f1": round(report.categories.f1, 3),
+            },
+            "calibration": {
+                "brier_score": round(report.calibration.brier_score, 3),
+                "calibration_error": round(report.calibration.calibration_error, 3),
+                "human_review_accuracy": round(report.calibration.human_review_accuracy, 3),
+            },
+            "details": report.details,
+            "skipped_cases": skipped,
+            "report_text": generate_report(report),
+        }
+    except Exception as e:
+        logger.error(f"Evaluation failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/classify/{regulation_id}", response_model=ClassificationResponse)
 def classify_regulation(
     regulation_id: str,

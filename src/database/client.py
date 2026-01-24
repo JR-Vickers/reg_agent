@@ -80,6 +80,16 @@ class SupabaseClient:
             logger.error(f"Error fetching regulations: {e}")
             raise
 
+    def get_regulation_by_document_id(self, document_id: str) -> Optional[Dict[str, Any]]:
+        try:
+            response = self.client.table("regulations").select("*").eq(
+                "document_id", document_id
+            ).execute()
+            return response.data[0] if response.data else None
+        except Exception as e:
+            logger.error(f"Error fetching regulation by document_id {document_id}: {e}")
+            raise
+
     def regulation_exists(self, source: str, document_id: str) -> bool:
         """Check if regulation already exists."""
         try:
