@@ -1,4 +1,8 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Tuple, Optional
+from dataclasses import dataclass
+
 from openai import OpenAI
 
 from src.config.settings import settings
@@ -60,3 +64,52 @@ def classify_document(
     )
 
     return result
+
+
+@dataclass
+class DocumentInput:
+    id: str
+    title: str
+    source: str
+    published_date: str
+    content: str
+
+
+@dataclass
+class BatchResult:
+    id: str
+    result: Optional[ClassificationResult]
+    error: Optional[str]
+
+
+def classify_documents_batch(
+    documents: List[DocumentInput],
+    max_workers: int = 10,
+) -> List[BatchResult]:
+    results: List[BatchResult] = [None] * len(documents)
+
+    def classify_one(idx: int, doc: DocumentInput) -> Tuple[int, BatchResult]:
+        try:
+            result = classify_document(
+                title=doc.title,
+                source=doc.source,
+                published_date=doc.published_date,
+                content=doc.content,
+            )
+            return idx, BatchResult(id=doc.id, result=result, error=None)
+        except Exception as e:
+            logger.error(f"Error classifying {doc.id}: {e}")
+            return idx, BatchResult(id=doc.id, result=None, error=str(e))
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(classify_one, i, doc): i
+            for i, doc in enumerate(documents)
+        }
+
+        for future in as_completed(futures):
+            idx, batch_result = future.result()
+            results[idx] = batch_result
+            logger.info(f"[{sum(1 for r in results if r is not None)}/{len(documents)}] Completed: {batch_result.id}")
+
+    return results

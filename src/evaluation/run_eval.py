@@ -5,7 +5,7 @@ import time
 from typing import List, Tuple
 
 from src.database.client import get_supabase_client
-from src.agents.classify.client import classify_document
+from src.agents.classify.client import classify_documents_batch, DocumentInput
 from src.evaluation.loader import load_test_data, TestCase
 from src.evaluation.metrics import (
     PredictedClassification,
@@ -18,48 +18,53 @@ from src.evaluation.metrics import (
 logger = logging.getLogger(__name__)
 
 
-def run_evaluation() -> Tuple[EvaluationReport, List[dict]]:
+def run_evaluation(max_workers: int = 10) -> Tuple[EvaluationReport, List[dict]]:
     db = get_supabase_client()
     dataset = load_test_data()
 
-    predictions: List[PredictedClassification] = []
     skipped: List[dict] = []
-    valid_cases: List[TestCase] = []
+    documents: List[DocumentInput] = []
+    test_case_map: dict[str, TestCase] = {}
 
-    total = len(dataset.test_cases)
-    start_time = time.time()
-
-    for i, tc in enumerate(dataset.test_cases, 1):
+    for tc in dataset.test_cases:
         regulation = db.get_regulation_by_document_id(tc.document_id)
         if not regulation:
             logger.warning(f"Skipping {tc.document_id}: not found in DB")
             skipped.append({"document_id": tc.document_id, "reason": "not_in_db"})
             continue
 
-        logger.info(f"[{i}/{total}] Classifying: {tc.document_id}")
+        documents.append(DocumentInput(
+            id=tc.document_id,
+            title=regulation["title"],
+            source=regulation.get("source", "unknown"),
+            published_date=str(regulation.get("published_date", "")),
+            content=regulation.get("content", regulation["title"]),
+        ))
+        test_case_map[tc.document_id] = tc
 
-        try:
-            result = classify_document(
-                title=regulation["title"],
-                source=regulation.get("source", "unknown"),
-                published_date=str(regulation.get("published_date", "")),
-                content=regulation.get("content", regulation["title"]),
-            )
+    logger.info(f"Classifying {len(documents)} documents with {max_workers} workers...")
+    start_time = time.time()
 
-            predictions.append(PredictedClassification(
-                relevance_score=result.relevance_score,
-                confidence=result.confidence,
-                bsa_pillars=result.bsa_pillars,
-                categories=result.categories,
-                requires_human_review=result.requires_human_review,
-            ))
-            valid_cases.append(tc)
-
-        except Exception as e:
-            logger.error(f"Error classifying {tc.document_id}: {e}")
-            skipped.append({"document_id": tc.document_id, "reason": str(e)})
+    batch_results = classify_documents_batch(documents, max_workers=max_workers)
 
     elapsed = time.time() - start_time
+
+    predictions: List[PredictedClassification] = []
+    valid_cases: List[TestCase] = []
+
+    for br in batch_results:
+        if br.error:
+            skipped.append({"document_id": br.id, "reason": br.error})
+            continue
+
+        predictions.append(PredictedClassification(
+            relevance_score=br.result.relevance_score,
+            confidence=br.result.confidence,
+            bsa_pillars=br.result.bsa_pillars,
+            categories=br.result.categories,
+            requires_human_review=br.result.requires_human_review,
+        ))
+        valid_cases.append(test_case_map[br.id])
 
     if not valid_cases:
         raise RuntimeError("No test cases could be evaluated — check DB contents")

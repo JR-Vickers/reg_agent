@@ -68,7 +68,7 @@ For each document, you must assess:
    - Multiple conflicting jurisdictional implications
    - Ambiguous applicability to crypto specifically
 
-Think through your reasoning step by step before providing scores. Be precise with pillar and category assignments - only include those that are genuinely implicated by the document."""
+Assign ALL pillars and categories that apply - most compliance documents implicate multiple pillars. For example, a FinCEN alert about fraud typologies would typically affect internal_controls (update detection rules), training (educate staff), AND customer_due_diligence (enhanced monitoring)."""
 
 
 class ClassificationResult(BaseModel):
