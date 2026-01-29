@@ -393,3 +393,64 @@ def classify_regulation(
 
     data = client.get_classification(reg_uuid)
     return ClassificationResponse(**data)
+
+
+@app.post("/api/gap-analysis/{regulation_id}", response_model=GapAnalysisResponse)
+def run_gap_analysis(
+    regulation_id: str,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Run gap analysis on a classified regulation using GPT-4o."""
+    from uuid import UUID as _UUID
+    from src.agents.assess.client import analyze_gaps
+    from src.models.document import GapAnalysisCreate, GapSeverity
+
+    try:
+        reg_uuid = _UUID(regulation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid regulation ID format")
+
+    regulation = client.get_regulation(reg_uuid)
+    if not regulation:
+        raise HTTPException(status_code=404, detail="Regulation not found")
+
+    classification = client.get_classification(reg_uuid)
+    if not classification:
+        raise HTTPException(
+            status_code=400,
+            detail="Regulation must be classified before gap analysis. Call POST /api/classify/{id} first."
+        )
+
+    if classification["relevance_score"] < 3 or classification["confidence"] < 0.7:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Regulation does not meet threshold for gap analysis (relevance >= 3 AND confidence >= 0.7). Current: relevance={classification['relevance_score']}, confidence={classification['confidence']}"
+        )
+
+    existing = client.get_gap_analysis(reg_uuid)
+    if existing:
+        return GapAnalysisResponse(**existing)
+
+    result = analyze_gaps(
+        title=regulation["title"],
+        source=regulation.get("source", "unknown"),
+        published_date=str(regulation.get("published_date", "")),
+        content=regulation.get("content", regulation["title"]),
+        classification_reasoning=classification.get("classification_reasoning", ""),
+        relevance_score=classification["relevance_score"],
+        bsa_pillars=classification.get("bsa_pillars", []),
+        categories=classification.get("categories", []),
+    )
+
+    gap_create = GapAnalysisCreate(
+        regulation_id=reg_uuid,
+        affected_controls=[g.model_dump() for g in result.affected_controls],
+        gap_severity=GapSeverity(result.overall_severity),
+        remediation_effort_hours=result.total_effort_hours if result.total_effort_hours > 0 else None,
+        analysis_summary=result.summary,
+        recommendations={"gaps": [g.model_dump() for g in result.affected_controls], "reasoning": result.reasoning},
+        model_used="gpt-4o",
+    )
+
+    data = client.create_gap_analysis(gap_create)
+    return GapAnalysisResponse(**data)
