@@ -149,9 +149,8 @@ class SupabaseClient:
     ) -> Dict[str, Any]:
         """Create a new gap analysis."""
         try:
-            response = self.client.table("gap_analyses").insert(
-                gap_analysis.model_dump(exclude_none=True)
-            ).execute()
+            data = gap_analysis.model_dump(mode="json", exclude_none=True)
+            response = self.client.table("gap_analyses").insert(data).execute()
 
             if not response.data:
                 raise ValueError("Failed to create gap analysis")
@@ -203,6 +202,31 @@ class SupabaseClient:
 
         except Exception as e:
             logger.error(f"Error fetching priority regulations: {e}")
+            return []
+
+    def get_classifications_needing_gap_analysis(
+        self,
+        relevance_threshold: int = 3,
+        confidence_threshold: float = 0.7,
+        limit: int = 50,
+    ) -> List[Dict[str, Any]]:
+        """Get classifications that meet threshold but lack gap analysis."""
+        try:
+            response = self.client.from_("classifications").select(
+                "regulation_id, relevance_score, confidence, bsa_pillars, categories, classification_reasoning, regulations(id, title, source, published_date, content)"
+            ).gte("relevance_score", relevance_threshold).gte("confidence", confidence_threshold).limit(limit).execute()
+
+            results = []
+            for row in response.data:
+                reg_id = row["regulation_id"]
+                existing_gap = self.get_gap_analysis(UUID(reg_id))
+                if not existing_gap:
+                    results.append(row)
+
+            return results
+
+        except Exception as e:
+            logger.error(f"Error fetching classifications needing gap analysis: {e}")
             return []
 
     # Vector Search (for future use)

@@ -5,6 +5,7 @@ API docs: https://www.federalregister.gov/developers/api/v1
 """
 
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import List, Optional
 from dataclasses import dataclass
@@ -61,6 +62,24 @@ class ScrapedDocument:
     description: Optional[str]
     doc_type: str
     agencies: List[str]
+    raw_text_url: Optional[str] = None
+    content: Optional[str] = None
+
+
+def fetch_raw_text(url: str, max_length: int = 50000) -> Optional[str]:
+    """Fetch and clean the raw text content from a Federal Register document."""
+    try:
+        response = requests.get(url, timeout=30)
+        response.raise_for_status()
+        html = response.text
+        text = re.sub(r'<[^>]+>', '', html)
+        text = re.sub(r'\s+', ' ', text).strip()
+        if len(text) > max_length:
+            text = text[:max_length]
+        return text
+    except Exception as e:
+        logger.warning(f"Failed to fetch raw text from {url}: {e}")
+        return None
 
 
 def search_documents(
@@ -80,7 +99,7 @@ def search_documents(
         "fields[]": [
             "document_number", "title", "html_url",
             "publication_date", "abstract", "type",
-            "agencies", "docket_ids",
+            "agencies", "docket_ids", "raw_text_url",
         ],
     }
     if start_date:
@@ -140,6 +159,7 @@ def parse_result(result: dict) -> Optional[ScrapedDocument]:
         description=result.get("abstract"),
         doc_type=doc_type,
         agencies=agencies,
+        raw_text_url=result.get("raw_text_url"),
     )
 
 
@@ -186,13 +206,19 @@ def ingest_new_documents(start_date: Optional[str] = None) -> int:
             logger.debug(f"Skipping existing document: {doc.title}")
             continue
 
+        content = None
+        if doc.raw_text_url:
+            content = fetch_raw_text(doc.raw_text_url)
+        if not content:
+            content = doc.description
+
         regulation = RegulationCreate(
             source=DocumentSource.FEDERAL_REGISTER,
             document_id=doc.document_id,
             title=doc.title,
             url=doc.url,
             published_date=doc.published_date,
-            content=doc.description,
+            content=content,
             metadata={
                 "doc_type": doc.doc_type,
                 "agencies": doc.agencies,
@@ -211,7 +237,7 @@ def ingest_new_documents(start_date: Optional[str] = None) -> int:
                     title=doc.title,
                     source=DocumentSource.FEDERAL_REGISTER.value,
                     published_date=str(doc.published_date or ""),
-                    content=doc.description or doc.title,
+                    content=content or doc.title,
                 )
             except Exception as e:
                 logger.error(f"Auto-classify failed for {doc.title}: {e}")

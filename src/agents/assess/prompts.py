@@ -82,6 +82,7 @@ def build_gap_analysis_prompt(
     categories: List[str],
 ) -> str:
     max_content_length = 4000
+    content = content or title
     if len(content) > max_content_length:
         content = content[:max_content_length] + "\n[TRUNCATED]"
 

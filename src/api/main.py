@@ -395,6 +395,48 @@ def classify_regulation(
     return ClassificationResponse(**data)
 
 
+@app.post("/api/gap-analysis/backfill")
+def backfill_gap_analyses(
+    limit: int = 10,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Run gap analysis on classified regulations that meet threshold but lack analysis."""
+    from src.agents.classify.pipeline import _trigger_gap_analysis
+
+    pending = client.get_classifications_needing_gap_analysis(limit=limit)
+
+    results = {"processed": 0, "succeeded": 0, "failed": 0, "details": []}
+
+    for row in pending:
+        reg = row.get("regulations", {})
+        if not reg:
+            continue
+
+        results["processed"] += 1
+        title = reg.get("title", "Unknown")
+
+        success = _trigger_gap_analysis(
+            regulation_id=row["regulation_id"],
+            title=title,
+            source=reg.get("source", "unknown"),
+            published_date=str(reg.get("published_date", "")),
+            content=reg.get("content", title),
+            classification_reasoning=row.get("classification_reasoning", ""),
+            relevance_score=row["relevance_score"],
+            bsa_pillars=row.get("bsa_pillars", []),
+            categories=row.get("categories", {}).get("labels", []),
+        )
+
+        if success:
+            results["succeeded"] += 1
+            results["details"].append({"regulation_id": row["regulation_id"], "title": title[:50], "status": "success"})
+        else:
+            results["failed"] += 1
+            results["details"].append({"regulation_id": row["regulation_id"], "title": title[:50], "status": "failed"})
+
+    return results
+
+
 @app.post("/api/gap-analysis/{regulation_id}", response_model=GapAnalysisResponse)
 def run_gap_analysis(
     regulation_id: str,
@@ -444,11 +486,11 @@ def run_gap_analysis(
 
     gap_create = GapAnalysisCreate(
         regulation_id=reg_uuid,
-        affected_controls=[g.model_dump() for g in result.affected_controls],
+        affected_controls={"controls": [g.model_dump() for g in result.affected_controls]},
         gap_severity=GapSeverity(result.overall_severity),
         remediation_effort_hours=result.total_effort_hours if result.total_effort_hours > 0 else None,
         analysis_summary=result.summary,
-        recommendations={"gaps": [g.model_dump() for g in result.affected_controls], "reasoning": result.reasoning},
+        recommendations={"reasoning": result.reasoning},
         model_used="gpt-4o",
     )
 
