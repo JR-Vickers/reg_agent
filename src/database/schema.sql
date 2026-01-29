@@ -6,6 +6,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- Create enum types for consistency
 CREATE TYPE gap_severity_enum AS ENUM ('low', 'medium', 'high', 'critical');
+CREATE TYPE task_priority_enum AS ENUM ('low', 'medium', 'high', 'critical');
+CREATE TYPE task_status_enum AS ENUM ('pending', 'in_progress', 'completed');
 
 -- Regulation Documents table
 -- Stores raw regulatory documents from various sources
@@ -61,6 +63,23 @@ CREATE TABLE gap_analyses (
   CONSTRAINT gap_analyses_regulation_id_unique UNIQUE (regulation_id)
 );
 
+-- Tasks table
+-- Stores actionable tasks generated from gap analysis
+CREATE TABLE tasks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  regulation_id UUID NOT NULL REFERENCES regulations(id) ON DELETE CASCADE,
+  gap_analysis_id UUID NOT NULL REFERENCES gap_analyses(id) ON DELETE CASCADE,
+  control_id VARCHAR(20) NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  assigned_team VARCHAR(100) NOT NULL,
+  priority task_priority_enum NOT NULL DEFAULT 'medium',
+  status task_status_enum NOT NULL DEFAULT 'pending',
+  due_date DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX idx_regulations_source ON regulations(source);
 CREATE INDEX idx_regulations_published_date ON regulations(published_date DESC);
@@ -74,6 +93,13 @@ CREATE INDEX idx_classifications_created_at ON classifications(created_at DESC);
 
 CREATE INDEX idx_gap_analyses_gap_severity ON gap_analyses(gap_severity);
 CREATE INDEX idx_gap_analyses_created_at ON gap_analyses(created_at DESC);
+
+CREATE INDEX idx_tasks_regulation_id ON tasks(regulation_id);
+CREATE INDEX idx_tasks_gap_analysis_id ON tasks(gap_analysis_id);
+CREATE INDEX idx_tasks_assigned_team ON tasks(assigned_team);
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_priority ON tasks(priority);
+CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 
 -- Create views for common queries
 CREATE VIEW recent_regulations AS

@@ -40,6 +40,25 @@
         .pagination a, .pagination span { padding: 8px 12px; border-radius: 4px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .pagination a:hover { background: #f0f0f0; text-decoration: none; }
         .pagination .current { background: #1a1a2e; color: white; }
+        .tabs { display: flex; gap: 0; margin-bottom: 20px; }
+        .tab { padding: 12px 24px; background: #e0e0e0; border: none; cursor: pointer; font-size: 0.95rem; font-weight: 500; transition: background 0.2s; }
+        .tab:first-child { border-radius: 8px 0 0 8px; }
+        .tab:last-child { border-radius: 0 8px 8px 0; }
+        .tab.active { background: #1a1a2e; color: white; }
+        .tab:hover:not(.active) { background: #ccc; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .priority-critical { color: #c62828; font-weight: 600; }
+        .priority-high { color: #e65100; font-weight: 600; }
+        .priority-medium { color: #f9a825; }
+        .priority-low { color: #2e7d32; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .status-pending { background: #fff3e0; color: #e65100; }
+        .status-in_progress { background: #e3f2fd; color: #1565c0; }
+        .status-completed { background: #e8f5e9; color: #2e7d32; }
+        .team-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; background: #f5f5f5; color: #555; }
+        .task-filters { display: flex; gap: 15px; flex-wrap: wrap; }
+        .task-filters select { padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
@@ -49,6 +68,12 @@
             <p>BSA/AML Compliance Monitoring System</p>
         </header>
 
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('documents')">Documents</button>
+            <button class="tab" onclick="showTab('tasks')">Tasks</button>
+        </div>
+
+        <div id="documents-tab" class="tab-content active">
         <div class="stats">
             <div class="stat-card">
                 <div class="value">{{ total_count }}</div>
@@ -108,6 +133,73 @@
             <p>No documents found.</p>
         </div>
         {% endif %}
+        </div>
+
+        <div id="tasks-tab" class="tab-content">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="value" id="task-count">-</div>
+                    <div class="label">Total Tasks</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="pending-count">-</div>
+                    <div class="label">Pending</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="in-progress-count">-</div>
+                    <div class="label">In Progress</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value" id="completed-count">-</div>
+                    <div class="label">Completed</div>
+                </div>
+            </div>
+
+            <div class="filters">
+                <div class="task-filters">
+                    <div>
+                        <label for="status-filter">Status:</label>
+                        <select id="status-filter" onchange="loadTasks()">
+                            <option value="">All</option>
+                            <option value="pending">Pending</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="team-filter">Team:</label>
+                        <select id="team-filter" onchange="loadTasks()">
+                            <option value="">All Teams</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="priority-filter">Priority:</label>
+                        <select id="priority-filter" onchange="loadTasks()">
+                            <option value="">All</option>
+                            <option value="critical">Critical</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <table id="tasks-table">
+                <thead>
+                    <tr>
+                        <th>Priority</th>
+                        <th>Title</th>
+                        <th>Team</th>
+                        <th>Status</th>
+                        <th>Due Date</th>
+                    </tr>
+                </thead>
+                <tbody id="tasks-body">
+                    <tr><td colspan="5" class="empty-state">Loading tasks...</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <script>
@@ -120,6 +212,76 @@
                 url.searchParams.delete('source');
             }
             window.location = url;
+        }
+
+        function showTab(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`#${tab}-tab`).classList.add('active');
+            event.target.classList.add('active');
+            if (tab === 'tasks') {
+                loadTeams();
+                loadTasks();
+            }
+        }
+
+        async function loadTeams() {
+            try {
+                const resp = await fetch('/api/tasks/teams');
+                const data = await resp.json();
+                const select = document.getElementById('team-filter');
+                select.innerHTML = '<option value="">All Teams</option>';
+                data.teams.forEach(team => {
+                    select.innerHTML += `<option value="${team}">${team}</option>`;
+                });
+            } catch (e) {
+                console.error('Failed to load teams:', e);
+            }
+        }
+
+        async function loadTasks() {
+            const status = document.getElementById('status-filter').value;
+            const team = document.getElementById('team-filter').value;
+            const priority = document.getElementById('priority-filter').value;
+
+            let url = '/api/tasks?limit=100';
+            if (status) url += `&status=${status}`;
+            if (team) url += `&assigned_team=${encodeURIComponent(team)}`;
+            if (priority) url += `&priority=${priority}`;
+
+            try {
+                const resp = await fetch(url);
+                const tasks = await resp.json();
+                renderTasks(tasks);
+                updateTaskStats(tasks);
+            } catch (e) {
+                console.error('Failed to load tasks:', e);
+                document.getElementById('tasks-body').innerHTML = '<tr><td colspan="5" class="empty-state">Failed to load tasks</td></tr>';
+            }
+        }
+
+        function renderTasks(tasks) {
+            const tbody = document.getElementById('tasks-body');
+            if (tasks.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No tasks found</td></tr>';
+                return;
+            }
+            tbody.innerHTML = tasks.map(task => `
+                <tr>
+                    <td><span class="priority-${task.priority}">${task.priority.toUpperCase()}</span></td>
+                    <td title="${task.description || ''}">${task.title}</td>
+                    <td><span class="team-badge">${task.assigned_team}</span></td>
+                    <td><span class="status-badge status-${task.status}">${task.status.replace('_', ' ')}</span></td>
+                    <td class="date">${task.due_date ? task.due_date.slice(0, 10) : '-'}</td>
+                </tr>
+            `).join('');
+        }
+
+        function updateTaskStats(tasks) {
+            document.getElementById('task-count').textContent = tasks.length;
+            document.getElementById('pending-count').textContent = tasks.filter(t => t.status === 'pending').length;
+            document.getElementById('in-progress-count').textContent = tasks.filter(t => t.status === 'in_progress').length;
+            document.getElementById('completed-count').textContent = tasks.filter(t => t.status === 'completed').length;
         }
     </script>
 </body>

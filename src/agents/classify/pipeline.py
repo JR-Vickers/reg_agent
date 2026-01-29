@@ -102,10 +102,57 @@ def _trigger_gap_analysis(
             model_used="gpt-4o",
         )
 
-        db.create_gap_analysis(gap_create)
+        data = db.create_gap_analysis(gap_create)
         logger.info(f"Gap analysis complete for '{title[:50]}': severity={result.overall_severity}, controls={len(result.affected_controls)}")
+
+        _trigger_task_generation(
+            gap_analysis_id=data["id"],
+            regulation_id=regulation_id,
+            gap_severity=result.overall_severity,
+            affected_controls=[g.model_dump() for g in result.affected_controls],
+            regulation_title=title,
+        )
+
         return True
 
     except Exception as e:
         logger.error(f"Gap analysis failed for {regulation_id}: {e}")
+        return False
+
+
+def _trigger_task_generation(
+    gap_analysis_id: str,
+    regulation_id: UUID,
+    gap_severity: str,
+    affected_controls: list,
+    regulation_title: str,
+) -> bool:
+    from src.agents.route import generate_tasks_from_gap_analysis
+
+    db = get_supabase_client()
+
+    existing = db.get_tasks_by_gap_analysis(gap_analysis_id)
+    if existing:
+        logger.debug(f"Tasks already exist for gap analysis {gap_analysis_id}, skipping")
+        return False
+
+    logger.info(f"Auto-generating tasks for '{regulation_title[:50]}'")
+
+    try:
+        tasks = generate_tasks_from_gap_analysis(
+            regulation_id=regulation_id,
+            gap_analysis_id=gap_analysis_id,
+            gap_severity=gap_severity,
+            affected_controls=affected_controls,
+            regulation_title=regulation_title,
+        )
+
+        for task in tasks:
+            db.create_task(task)
+
+        logger.info(f"Created {len(tasks)} tasks for '{regulation_title[:50]}'")
+        return True
+
+    except Exception as e:
+        logger.error(f"Task generation failed for gap analysis {gap_analysis_id}: {e}")
         return False

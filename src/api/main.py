@@ -23,6 +23,7 @@ from src.models.document import (
     ClassificationResponse, ClassificationCreate,
     GapAnalysisResponse, GapAnalysisCreate,
     PriorityRegulation,
+    TaskResponse, TaskUpdate,
 )
 from src.agents.monitor.fincen import ingest_new_documents as ingest_fincen
 from src.agents.monitor.federal_register import ingest_new_documents as ingest_federal_register
@@ -267,14 +268,10 @@ async def dashboard(
         has_more = len(regulations) > limit
         regulations = regulations[:limit]
 
-        all_regs = client.get_regulations(limit=1000)
-        total_count = len(all_regs)
-        source_counts = {}
-        available_sources = set()
-        for reg in all_regs:
-            src = reg.get("source", "unknown")
-            available_sources.add(src)
-            source_counts[src] = source_counts.get(src, 0) + 1
+        counts = client.get_regulation_counts()
+        total_count = counts["total"]
+        source_counts = counts["by_source"]
+        available_sources = set(source_counts.keys())
 
         return templates.TemplateResponse("dashboard.html", {
             "request": request,
@@ -496,3 +493,135 @@ def run_gap_analysis(
 
     data = client.create_gap_analysis(gap_create)
     return GapAnalysisResponse(**data)
+
+
+# Task endpoints
+
+@app.post("/api/tasks/generate/{gap_analysis_id}")
+def generate_tasks_for_gap_analysis(
+    gap_analysis_id: str,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Generate tasks from a gap analysis."""
+    from uuid import UUID as _UUID
+    from src.agents.route import generate_tasks_from_gap_analysis
+
+    try:
+        gap_uuid = _UUID(gap_analysis_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid gap analysis ID format")
+
+    gap_analysis = client.get_gap_analysis_by_id(gap_uuid)
+    if not gap_analysis:
+        raise HTTPException(status_code=404, detail="Gap analysis not found")
+
+    existing_tasks = client.get_tasks_by_gap_analysis(gap_uuid)
+    if existing_tasks:
+        return {
+            "status": "already_exists",
+            "message": f"Tasks already generated for this gap analysis",
+            "task_count": len(existing_tasks),
+            "tasks": [TaskResponse(**t) for t in existing_tasks]
+        }
+
+    regulation = client.get_regulation(gap_analysis["regulation_id"])
+    if not regulation:
+        raise HTTPException(status_code=404, detail="Regulation not found")
+
+    affected_controls = gap_analysis.get("affected_controls", {}).get("controls", [])
+
+    tasks = generate_tasks_from_gap_analysis(
+        regulation_id=gap_analysis["regulation_id"],
+        gap_analysis_id=gap_uuid,
+        gap_severity=gap_analysis["gap_severity"],
+        affected_controls=affected_controls,
+        regulation_title=regulation["title"],
+    )
+
+    created_tasks = []
+    for task in tasks:
+        data = client.create_task(task)
+        created_tasks.append(TaskResponse(**data))
+
+    return {
+        "status": "created",
+        "task_count": len(created_tasks),
+        "tasks": created_tasks
+    }
+
+
+@app.get("/api/tasks", response_model=List[TaskResponse])
+def get_tasks(
+    status: str = None,
+    assigned_team: str = None,
+    priority: str = None,
+    limit: int = 50,
+    offset: int = 0,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Get tasks with optional filtering."""
+    try:
+        data = client.get_tasks(
+            status=status,
+            assigned_team=assigned_team,
+            priority=priority,
+            limit=limit,
+            offset=offset
+        )
+        return [TaskResponse(**item) for item in data]
+
+    except Exception as e:
+        logger.error(f"Error fetching tasks: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/tasks/teams")
+def get_teams():
+    """Get list of valid teams for task assignment."""
+    from src.agents.route import VALID_TEAMS
+    return {"teams": VALID_TEAMS}
+
+
+@app.get("/api/tasks/{task_id}", response_model=TaskResponse)
+def get_task(
+    task_id: str,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Get a single task by ID."""
+    from uuid import UUID as _UUID
+
+    try:
+        task_uuid = _UUID(task_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid task ID format")
+
+    task = client.get_task(task_uuid)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return TaskResponse(**task)
+
+
+@app.patch("/api/tasks/{task_id}", response_model=TaskResponse)
+def update_task(
+    task_id: str,
+    update: TaskUpdate,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Update a task (status, team, priority, due date)."""
+    from uuid import UUID as _UUID
+
+    try:
+        task_uuid = _UUID(task_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid task ID format")
+
+    existing = client.get_task(task_uuid)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    try:
+        data = client.update_task(task_uuid, update)
+        return TaskResponse(**data)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

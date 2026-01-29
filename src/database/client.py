@@ -8,7 +8,8 @@ from supabase import create_client, Client
 from src.config.settings import settings
 from src.models.document import (
     Regulation, Classification, GapAnalysis,
-    RegulationCreate, ClassificationCreate, GapAnalysisCreate
+    RegulationCreate, ClassificationCreate, GapAnalysisCreate,
+    TaskCreate, TaskUpdate,
 )
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,24 @@ class SupabaseClient:
         except Exception as e:
             logger.error(f"Error fetching regulations: {e}")
             raise
+
+    def get_regulation_counts(self) -> Dict[str, int]:
+        """Get total count and counts by source using count query."""
+        try:
+            total_resp = self.client.table("regulations").select("*", count="exact").limit(0).execute()
+            total = total_resp.count or 0
+
+            source_resp = self.client.table("regulations").select("source").execute()
+            source_counts = {}
+            for row in source_resp.data:
+                src = row.get("source", "unknown")
+                source_counts[src] = source_counts.get(src, 0) + 1
+
+            return {"total": total, "by_source": source_counts}
+
+        except Exception as e:
+            logger.error(f"Error getting regulation counts: {e}")
+            return {"total": 0, "by_source": {}}
 
     def get_regulation_by_document_id(self, document_id: str) -> Optional[Dict[str, Any]]:
         try:
@@ -177,6 +196,22 @@ class SupabaseClient:
             logger.error(f"Error fetching gap analysis for {regulation_id}: {e}")
             raise
 
+    def get_gap_analysis_by_id(
+        self,
+        gap_analysis_id: UUID
+    ) -> Optional[Dict[str, Any]]:
+        """Get gap analysis by its own ID."""
+        try:
+            response = self.client.table("gap_analyses").select("*").eq(
+                "id", str(gap_analysis_id)
+            ).execute()
+
+            return response.data[0] if response.data else None
+
+        except Exception as e:
+            logger.error(f"Error fetching gap analysis {gap_analysis_id}: {e}")
+            raise
+
     # Complex Queries
 
     def get_recent_regulations(self, days: int = 90) -> List[Dict[str, Any]]:
@@ -227,6 +262,115 @@ class SupabaseClient:
 
         except Exception as e:
             logger.error(f"Error fetching classifications needing gap analysis: {e}")
+            return []
+
+    # Tasks
+
+    def create_task(self, task: TaskCreate) -> Dict[str, Any]:
+        """Create a new task."""
+        try:
+            data = task.model_dump(mode="json", exclude_none=True)
+            response = self.client.table("tasks").insert(data).execute()
+
+            if not response.data:
+                raise ValueError("Failed to create task")
+
+            return response.data[0]
+
+        except Exception as e:
+            logger.error(f"Error creating task: {e}")
+            raise
+
+    def get_task(self, task_id: UUID) -> Optional[Dict[str, Any]]:
+        """Get task by ID."""
+        try:
+            response = self.client.table("tasks").select("*").eq(
+                "id", str(task_id)
+            ).execute()
+
+            return response.data[0] if response.data else None
+
+        except Exception as e:
+            logger.error(f"Error fetching task {task_id}: {e}")
+            raise
+
+    def get_tasks(
+        self,
+        status: Optional[str] = None,
+        assigned_team: Optional[str] = None,
+        priority: Optional[str] = None,
+        regulation_id: Optional[UUID] = None,
+        gap_analysis_id: Optional[UUID] = None,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[Dict[str, Any]]:
+        """Get tasks with optional filtering."""
+        try:
+            query = self.client.table("tasks").select("*")
+
+            if status:
+                query = query.eq("status", status)
+            if assigned_team:
+                query = query.eq("assigned_team", assigned_team)
+            if priority:
+                query = query.eq("priority", priority)
+            if regulation_id:
+                query = query.eq("regulation_id", str(regulation_id))
+            if gap_analysis_id:
+                query = query.eq("gap_analysis_id", str(gap_analysis_id))
+
+            query = query.order("created_at", desc=True)
+            query = query.range(offset, offset + limit - 1)
+
+            response = query.execute()
+            return response.data
+
+        except Exception as e:
+            logger.error(f"Error fetching tasks: {e}")
+            raise
+
+    def update_task(self, task_id: UUID, update: TaskUpdate) -> Dict[str, Any]:
+        """Update a task."""
+        try:
+            data = update.model_dump(mode="json", exclude_none=True)
+            if not data:
+                raise ValueError("No update fields provided")
+
+            response = self.client.table("tasks").update(data).eq(
+                "id", str(task_id)
+            ).execute()
+
+            if not response.data:
+                raise ValueError(f"Task {task_id} not found")
+
+            return response.data[0]
+
+        except Exception as e:
+            logger.error(f"Error updating task {task_id}: {e}")
+            raise
+
+    def get_tasks_by_gap_analysis(self, gap_analysis_id: UUID) -> List[Dict[str, Any]]:
+        """Get all tasks for a gap analysis."""
+        try:
+            response = self.client.table("tasks").select("*").eq(
+                "gap_analysis_id", str(gap_analysis_id)
+            ).execute()
+
+            return response.data
+
+        except Exception as e:
+            logger.error(f"Error fetching tasks for gap analysis {gap_analysis_id}: {e}")
+            raise
+
+    def get_distinct_teams(self) -> List[str]:
+        """Get list of distinct assigned teams."""
+        try:
+            response = self.client.table("tasks").select("assigned_team").execute()
+            teams = set(row["assigned_team"] for row in response.data)
+            return sorted(teams)
+
+        except Exception as e:
+            logger.error(f"Error fetching distinct teams: {e}")
             return []
 
     # Vector Search (for future use)

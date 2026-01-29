@@ -26,6 +26,21 @@ class GapSeverity(str, Enum):
     CRITICAL = "critical"
 
 
+class TaskPriority(str, Enum):
+    """Task priority levels."""
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class TaskStatus(str, Enum):
+    """Task status values."""
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+
+
 class BSAPillar(str, Enum):
     """BSA Five Pillars framework."""
     INTERNAL_CONTROLS = "internal_controls"
@@ -202,3 +217,56 @@ class GapAnalysis(BaseModel):
     recommendations: Optional[Dict[str, Any]] = None
     model_used: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TaskBase(BaseModel):
+    """Base task model."""
+    control_id: str
+    title: str
+    description: Optional[str] = None
+    assigned_team: str
+    priority: TaskPriority = TaskPriority.MEDIUM
+    status: TaskStatus = TaskStatus.PENDING
+    due_date: Optional[datetime] = None
+
+
+class TaskCreate(TaskBase):
+    """Model for creating new tasks."""
+    regulation_id: UUID
+    gap_analysis_id: UUID
+
+
+class TaskUpdate(BaseModel):
+    """Model for updating tasks."""
+    status: Optional[TaskStatus] = None
+    assigned_team: Optional[str] = None
+    priority: Optional[TaskPriority] = None
+    due_date: Optional[datetime] = None
+
+
+class TaskResponse(TaskBase):
+    """Model for task API responses."""
+    id: UUID
+    regulation_id: UUID
+    gap_analysis_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class Task(BaseModel):
+    """Database model for tasks table."""
+    id: UUID = Field(default_factory=uuid4)
+    regulation_id: UUID
+    gap_analysis_id: UUID
+    control_id: str
+    title: str
+    description: Optional[str] = None
+    assigned_team: str
+    priority: str = "medium"
+    status: str = "pending"
+    due_date: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
