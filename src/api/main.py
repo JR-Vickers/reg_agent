@@ -27,6 +27,7 @@ from src.models.document import (
 )
 from src.agents.monitor.fincen import ingest_new_documents as ingest_fincen
 from src.agents.monitor.federal_register import ingest_new_documents as ingest_federal_register
+from src.agents.monitor.sec import ingest_new_documents as ingest_sec
 
 # Configure logging
 logging.config.dictConfig(get_log_config())
@@ -67,6 +68,16 @@ def run_federal_register_scraper():
         logger.error(f"Scheduled Federal Register scrape failed: {e}")
 
 
+def run_sec_scraper():
+    """Wrapper to run the SEC scraper with error handling."""
+    try:
+        logger.info("Running scheduled SEC scrape")
+        count = ingest_sec()
+        logger.info(f"Scheduled SEC scrape complete: {count} new documents")
+    except Exception as e:
+        logger.error(f"Scheduled SEC scrape failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
@@ -83,10 +94,11 @@ async def lifespan(app: FastAPI):
     # Start scheduler
     schedule.every(30).minutes.do(run_fincen_scraper)
     schedule.every(24).hours.do(run_federal_register_scraper)
+    schedule.every(24).hours.do(run_sec_scraper)
     scheduler_running = True
     scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
     scheduler_thread.start()
-    logger.info("FinCEN scraper scheduled every 30 minutes, Federal Register every 24 hours")
+    logger.info("FinCEN scraper scheduled every 30 minutes, Federal Register and SEC every 24 hours")
 
     yield
 
@@ -313,6 +325,21 @@ def trigger_federal_register_scrape(backfill_months: int = 0):
         return {"status": "ok", "new_documents": count}
     except Exception as e:
         logger.error(f"Federal Register scrape failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scrape/sec")
+def trigger_sec_scrape(backfill_days: int = 30):
+    """Manually trigger an SEC scrape. Set backfill_days for historical data (default 30)."""
+    try:
+        if backfill_days > 30:
+            from src.agents.monitor.sec import backfill
+            count = backfill(days=backfill_days)
+        else:
+            count = ingest_sec(days_back=backfill_days)
+        return {"status": "ok", "new_documents": count}
+    except Exception as e:
+        logger.error(f"SEC scrape failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
