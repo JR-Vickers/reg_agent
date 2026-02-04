@@ -117,7 +117,7 @@ export default async function Dashboard() {
           </div>
           <div className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {tasks.slice(0, 5).map((task) => (
-              <div key={task.id} className="px-6 py-4">
+              <Link key={task.id} href={`/tasks/${task.id}`} className="block px-6 py-4 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate">
@@ -131,7 +131,7 @@ export default async function Dashboard() {
                     {task.status.replace('_', ' ')}
                   </span>
                 </div>
-              </div>
+              </Link>
             ))}
             {tasks.length === 0 && (
               <p className="px-6 py-4 text-sm text-zinc-500 dark:text-zinc-400">No tasks found</p>
