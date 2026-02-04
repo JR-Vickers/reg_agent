@@ -32,7 +32,10 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret-key"
 
     # CORS
-    allowed_origins: list[str] = ["http://localhost:3000"]
+    allowed_origins: list[str] = [
+        "http://localhost:3000",
+        "https://regagent-production.up.railway.app"
+    ]
 
     @validator("allowed_origins", pre=True)
     def parse_cors_origins(cls, v):
