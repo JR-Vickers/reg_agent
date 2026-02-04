@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     allowed_origins: list[str] = [
         "http://localhost:3000",
         "https://regagent-backend-production.up.railway.app/",
-        "https://regagent-frontend-production.up.railway.app/"
+        "https://regagent-frontend-production.up.railway.app/",
+        "https://regagent-backend-production.up.railway.app",
+        "https://regagent-frontend-production.up.railway.app"
     ]
 
     @validator("allowed_origins", pre=True)
