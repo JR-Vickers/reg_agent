@@ -177,10 +177,10 @@ export default async function TasksPage({
           </thead>
           <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
             {tasks.map((task) => (
-              <tr key={task.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
+              <tr key={task.id} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer group">
                 <td className="px-6 py-4">
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  <Link href={`/tasks/${task.id}`} className="block">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                       {task.title}
                     </p>
                     {task.description && (
@@ -188,7 +188,7 @@ export default async function TasksPage({
                         {task.description}
                       </p>
                     )}
-                  </div>
+                  </Link>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
                   {task.assigned_team}

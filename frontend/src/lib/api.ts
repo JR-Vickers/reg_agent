@@ -43,6 +43,10 @@ export async function getRegulations(params?: {
   return fetchApi<Regulation[]>(`/api/regulations${query ? `?${query}` : ''}`);
 }
 
+export async function getRegulation(regulationId: string): Promise<Regulation> {
+  return fetchApi<Regulation>(`/api/regulations/${regulationId}`);
+}
+
 export async function getRecentRegulations(days = 90): Promise<Regulation[]> {
   return fetchApi<Regulation[]>(`/api/regulations/recent?days=${days}`);
 }
@@ -57,6 +61,10 @@ export async function classifyRegulation(regulationId: string): Promise<Classifi
 
 export async function runGapAnalysis(regulationId: string): Promise<GapAnalysis> {
   return fetchApi<GapAnalysis>(`/api/gap-analysis/${regulationId}`, { method: 'POST' });
+}
+
+export async function getGapAnalysis(gapAnalysisId: string): Promise<GapAnalysis> {
+  return fetchApi<GapAnalysis>(`/api/gap-analyses/${gapAnalysisId}`);
 }
 
 export async function getTasks(params?: {

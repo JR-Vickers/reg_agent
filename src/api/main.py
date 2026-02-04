@@ -121,7 +121,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -230,6 +230,26 @@ async def get_priority_regulations(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@app.get("/api/regulations/{regulation_id}", response_model=RegulationResponse)
+async def get_regulation(
+    regulation_id: str,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Get a single regulation by ID."""
+    from uuid import UUID as _UUID
+
+    try:
+        reg_uuid = _UUID(regulation_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid regulation ID format")
+
+    data = client.get_regulation(reg_uuid)
+    if not data:
+        raise HTTPException(status_code=404, detail="Regulation not found")
+
+    return RegulationResponse(**data)
+
+
 # Classification endpoints
 
 @app.post("/api/classifications", response_model=ClassificationResponse)
@@ -262,6 +282,26 @@ async def create_gap_analysis(
     except Exception as e:
         logger.error(f"Error creating gap analysis: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/gap-analyses/{gap_analysis_id}", response_model=GapAnalysisResponse)
+async def get_gap_analysis_endpoint(
+    gap_analysis_id: str,
+    client: SupabaseClient = Depends(get_supabase_client)
+):
+    """Get a single gap analysis by ID."""
+    from uuid import UUID as _UUID
+
+    try:
+        ga_uuid = _UUID(gap_analysis_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid gap analysis ID format")
+
+    data = client.get_gap_analysis_by_id(ga_uuid)
+    if not data:
+        raise HTTPException(status_code=404, detail="Gap analysis not found")
+
+    return GapAnalysisResponse(**data)
 
 
 # Dashboard

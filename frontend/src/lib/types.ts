@@ -32,12 +32,9 @@ export interface Classification {
 
 export interface AffectedControl {
   control_id: string;
-  control_name: string;
-  gap_type: string;
   gap_description: string;
-  severity: GapSeverity;
-  effort_hours: number;
-  recommendations: string[];
+  remediation_action: string;
+  effort_level: 'low' | 'medium' | 'high';
 }
 
 export interface GapAnalysis {
