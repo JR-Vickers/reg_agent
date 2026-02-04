@@ -10,10 +10,8 @@ from pathlib import Path
 from typing import List
 
 import schedule
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 
 from src.config.settings import settings, get_log_config
 from src.database.connection import init_database, close_database
@@ -32,9 +30,6 @@ from src.agents.monitor.sec import ingest_new_documents as ingest_sec
 # Configure logging
 logging.config.dictConfig(get_log_config())
 logger = logging.getLogger(__name__)
-
-# Templates
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Scheduler state
 scheduler_running = False
@@ -302,44 +297,6 @@ async def get_gap_analysis_endpoint(
         raise HTTPException(status_code=404, detail="Gap analysis not found")
 
     return GapAnalysisResponse(**data)
-
-
-# Dashboard
-
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(
-    request: Request,
-    source: str = None,
-    limit: int = 50,
-    offset: int = 0,
-    client: SupabaseClient = Depends(get_supabase_client)
-):
-    """Render the document dashboard."""
-    try:
-        regulations = client.get_regulations(source=source, limit=limit + 1, offset=offset)
-        has_more = len(regulations) > limit
-        regulations = regulations[:limit]
-
-        counts = client.get_regulation_counts()
-        total_count = counts["total"]
-        source_counts = counts["by_source"]
-        available_sources = set(source_counts.keys())
-
-        return templates.TemplateResponse("dashboard.html", {
-            "request": request,
-            "regulations": regulations,
-            "total_count": total_count,
-            "source_counts": source_counts,
-            "available_sources": sorted(available_sources),
-            "current_source": source,
-            "limit": limit,
-            "offset": offset,
-            "has_more": has_more
-        })
-
-    except Exception as e:
-        logger.error(f"Error rendering dashboard: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/scrape/fincen")
