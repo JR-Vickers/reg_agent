@@ -189,7 +189,7 @@ export default function TaskDetailPage() {
         )}
 
         {gapAnalysis && (
-          <div className="p-6">
+          <div className="p-6 border-b border-zinc-200 dark:border-zinc-800">
             <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Gap Analysis</h2>
             <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4 space-y-4">
               <div>
@@ -205,12 +205,17 @@ export default function TaskDetailPage() {
                   <div className="flex gap-4 text-xs text-zinc-500 dark:text-zinc-400">
                     <span>Effort Level: <span className="text-zinc-700 dark:text-zinc-300">{affectedControl.effort_level}</span></span>
                   </div>
-                  <div className="mt-3">
-                    <h4 className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase mb-1">Remediation Action</h4>
-                    <p className="text-sm text-zinc-700 dark:text-zinc-300">{affectedControl.remediation_action}</p>
-                  </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {affectedControl && (
+          <div className="p-6">
+            <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-3">Remediation Action</h2>
+            <div className="bg-zinc-50 dark:bg-zinc-800/50 rounded-lg p-4">
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">{affectedControl.remediation_action}</p>
             </div>
           </div>
         )}
